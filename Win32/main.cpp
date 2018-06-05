@@ -19,6 +19,9 @@ ID3D11RenderTargetView* renderTargetView;
 ID3D11Buffer* squareIndexBuffer;
 ID3D11Buffer* squareVertBuffer;
 
+ID3D11DepthStencilView* depthStencilView;
+ID3D11Texture2D* depthStencilBuffer;
+
 ID3D11VertexShader* VS;
 ID3D11PixelShader* PS;
 ID3D10Blob* VS_Buffer;
@@ -148,8 +151,27 @@ bool InitializeDirect3d11App(HINSTANCE hInstance)
 	d3d11Device->CreateRenderTargetView(BackBuffer, NULL, &renderTargetView);
 	BackBuffer->Release();
 
+	//Describe our Depth/Stencil Buffer
+	D3D11_TEXTURE2D_DESC depthStencilDesc;
+
+	depthStencilDesc.Width = Width;
+	depthStencilDesc.Height = Height;
+	depthStencilDesc.MipLevels = 1;
+	depthStencilDesc.ArraySize = 1;
+	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthStencilDesc.SampleDesc.Count = 1;
+	depthStencilDesc.SampleDesc.Quality = 0;
+	depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
+	depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	depthStencilDesc.CPUAccessFlags = 0;
+	depthStencilDesc.MiscFlags = 0;
+
+	//Create the Depth/Stencil View
+	d3d11Device->CreateTexture2D(&depthStencilDesc, NULL, &depthStencilBuffer);
+	d3d11Device->CreateDepthStencilView(depthStencilBuffer, NULL, &depthStencilView);
+
 	//Set our Render Target
-	d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, NULL);
+	d3d11DevCon->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 
 	return true;
 }
@@ -167,6 +189,8 @@ void ReleaseObjects()
 	VS_Buffer->Release();
 	PS_Buffer->Release();
 	vertLayout->Release();
+	depthStencilView->Release();
+	depthStencilBuffer->Release();
 }
 bool InitScene()
 {
@@ -250,6 +274,8 @@ bool InitScene()
 	viewport.TopLeftY = 0;
 	viewport.Width = Width;
 	viewport.Height = Height;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
 
 	//Set the Viewport
 	d3d11DevCon->RSSetViewports(1, &viewport);
@@ -267,6 +293,9 @@ void DrawScene()
 	//Clear our backbuffer
 	float bgColor[4] = { (0.0f, 0.0f, 0.0f, 0.0f) };
 	d3d11DevCon->ClearRenderTargetView(renderTargetView, bgColor);
+
+	//Refresh the Depth/Stencil view
+	d3d11DevCon->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	//Draw the triangle
 	d3d11DevCon->DrawIndexed(6, 0, 0);
